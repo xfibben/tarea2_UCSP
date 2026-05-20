@@ -1,0 +1,50 @@
+# Entornos y caches locales
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Configuracion local
+.env
+.env.*
+
+# Documentos temporales de trabajo
+PLAN_REIMPLEMENTACION.md
+DATA_NOTES.md
+
+# Datos y artefactos generados
+data/raw/*
+data/processed/*
+data/postprocessed/*
+data/replica/s3/*
+data/replica/athena/*
+data/replica/onpremise/*
+artifacts/models/*
+artifacts/metrics/*
+artifacts/monitoring/*
+mlruns/
+mlartifacts/
+
+# Mantener estructura de carpetas
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/postprocessed/.gitkeep
+!data/replica/s3/.gitkeep
+!data/replica/athena/.gitkeep
+!data/replica/onpremise/.gitkeep
+!artifacts/models/.gitkeep
+!artifacts/metrics/.gitkeep
+!artifacts/monitoring/.gitkeep
+
+# Archivos pesados frecuentes
+*.csv
+*.parquet
+*.pkl
+*.joblib
+*.db
+*.sqlite
+*.sqlite3
