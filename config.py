@@ -20,6 +20,7 @@ class Paths:
     model_dir: Path = ROOT_DIR / "artifacts" / "models"
     metrics_dir: Path = ROOT_DIR / "artifacts" / "metrics"
     monitoring_dir: Path = ROOT_DIR / "artifacts" / "monitoring"
+    mlflow_tracking_uri: str = os.getenv("MLFLOW_TRACKING_URI", f"file://{ROOT_DIR / 'mlruns'}")
 
 
 @dataclass(frozen=True)
@@ -31,9 +32,21 @@ class Columns:
     contact_value_probability: str = "prob_value_contact"
     amount: str = "monto"
 
+    @property
+    def protected(self) -> tuple[str, ...]:
+        return (
+            self.month,
+            self.target,
+            self.customer_id,
+            self.campaign_group,
+            self.contact_value_probability,
+            self.amount,
+        )
+
 
 @dataclass(frozen=True)
 class SplitConfig:
+    nan_threshold_pct: float = 80.0
     validation_codmes: float = 201912.0
     test_size: float = 0.30
     random_state: int = 123
@@ -51,6 +64,8 @@ class ProjectConfig:
     columns: Columns = Columns()
     split: SplitConfig = SplitConfig()
     monitoring: MonitoringConfig = MonitoringConfig()
+    model_name: str = "cu_venta_xgb"
+    experiment_name: str = "cu_venta_e2e"
     drive_url: str = (
         "https://drive.google.com/drive/folders/"
         "1BbaYLS_Cy5pbvfE6JH3P7KlLdlRf_Cds?usp=drive_link"
@@ -73,4 +88,3 @@ def ensure_project_dirs() -> None:
         config.paths.monitoring_dir,
     ):
         directory.mkdir(parents=True, exist_ok=True)
-

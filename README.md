@@ -36,6 +36,12 @@ export CU_DATA_DIR=/ruta/local/dataset_cu_venta
 
 ## Instalacion
 
+En macOS, XGBoost necesita OpenMP. Si aparece un error sobre `libomp.dylib`, instalar:
+
+```bash
+brew install libomp
+```
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
@@ -44,7 +50,7 @@ pip install -r requirements.txt
 
 ## Estado del proyecto
 
-Fase actual: **Etapa 1 - Base del proyecto y entendimiento de datos**.
+Fase actual: **Etapa 2 - Entrenamiento y monitoreo**.
 
 Implementado:
 
@@ -52,14 +58,16 @@ Implementado:
 - Configuracion central.
 - Exclusiones para no subir datasets pesados.
 - Comando de inspeccion de CSV.
-- Notas del dataset.
+- Preprocesamiento con split temporal train/test/OOT.
+- Entrenamiento XGBoost con Optuna.
+- Registro de experimento y modelo en MLflow.
+- Monitoreo de score con PSI.
+- AUC de validacion y recall por decil.
+- Reentrenamiento automatico si el PSI entra en estado `ALERT`.
+- Validacion tecnica con datos sinteticos usando `--n-trials 1`.
 
 Pendiente:
 
-- Preprocesamiento completo.
-- Entrenamiento con Optuna.
-- Registro MLflow.
-- Monitoreo PSI/AUC/recall.
 - Postprocesamiento TLV.
 - Replica final.
 
@@ -77,12 +85,28 @@ Cuando los CSV se coloquen en `data/raw/`, basta con:
 python main.py inspect-data
 ```
 
-Los siguientes comandos quedan reservados para las siguientes etapas:
+Entrenar con Optuna, registrar en MLflow y monitorear OOT:
 
 ```bash
-python main.py train
+python main.py train --data-dir /ruta/local/dataset_cu_venta --n-trials 30
+```
+
+Si se desea indicar manualmente el mes OOT:
+
+```bash
+python main.py train --data-dir /ruta/local/dataset_cu_venta --validation-codmes 201912 --n-trials 30
+```
+
+El flujo disponible hasta fase 2 tambien puede ejecutarse con:
+
+```bash
+python main.py run-all --data-dir /ruta/local/dataset_cu_venta
+```
+
+El comando de inferencia queda reservado para la fase 3:
+
+```bash
 python main.py inference
-python main.py run-all
 ```
 
 ## Estructura
@@ -95,8 +119,6 @@ python main.py run-all
 ├── training.py
 ├── monitoring.py
 ├── postprocessing.py
-├── DATA_NOTES.md
-├── PLAN_REIMPLEMENTACION.md
 ├── requirements.txt
 ├── data/
 │   ├── raw/
@@ -113,3 +135,6 @@ python main.py run-all
 
 No subir los CSV ni artefactos generados a GitHub. El repositorio debe contener codigo, documentacion y estructura; los datos deben descargarse desde el Drive de la tarea.
 
+## Nota de validacion
+
+La fase 2 ya fue probada con datos sinteticos que respetan las columnas esperadas de la consigna. Falta ejecutar el mismo flujo con los CSV reales del Drive para confirmar nombres de columnas, meses disponibles y comportamiento OOT.
