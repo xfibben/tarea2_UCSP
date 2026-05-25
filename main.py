@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from config import config, ensure_project_dirs
@@ -29,8 +30,6 @@ def train_pipeline(
     n_trials: int,
     max_retrain_attempts: int,
 ) -> None:
-    import pandas as pd
-
     from training import train_and_log
 
     ensure_project_dirs()
@@ -42,14 +41,15 @@ def train_pipeline(
         n_trials=n_trials,
     )
 
-    report = _score_and_monitor(processed, model)
+    report = _score_monitor_and_postprocess(processed, model)
 
     print(f"Run MLflow: {run_id}")
     print(f"PSI score: {report['score_psi']:.6f} ({report['score_psi_status']})")
-    print(f"Reentrenamiento requerido: {report['requires_retraining']}")
+    print(f"Matriz de grupos rota: {report['group_matrix_broken']}")
+    print(f"Reentrenamiento requerido: {report['requires_retraining_final']}")
 
     for attempt in range(max_retrain_attempts):
-        if not report["requires_retraining"]:
+        if not report["requires_retraining_final"]:
             break
         print(f"Reentrenamiento automatico por alerta de monitoreo. Intento {attempt + 1}.")
         run_id, model = train_and_log(
@@ -58,28 +58,81 @@ def train_pipeline(
             metadata_path=Path(processed["metadata"]),
             n_trials=n_trials,
         )
-        report = _score_and_monitor(processed, model)
+        report = _score_monitor_and_postprocess(processed, model)
         print(f"Run MLflow reentrenado: {run_id}")
         print(f"PSI score reentrenado: {report['score_psi']:.6f} ({report['score_psi_status']})")
+        print(f"Matriz de grupos rota: {report['group_matrix_broken']}")
 
 
-def _score_and_monitor(processed: dict[str, str], model: object) -> dict[str, object]:
+def inference_pipeline(input_path: Path) -> None:
     import pandas as pd
 
-    from monitoring import run_monitoring
+    from postprocessing import run_postprocessing
+    from training import load_feature_columns, load_model
+
+    ensure_project_dirs()
+    if not input_path.exists():
+        raise FileNotFoundError(
+            f"No existe el archivo de inferencia: {input_path}. "
+            "Ejecuta primero train/run-all o pasa --input-path."
+        )
+
+    model = load_model()
+    feature_columns = load_feature_columns(config.paths.processed_dir / "preprocessing_metadata.json")
+    df = pd.read_csv(input_path)
+    scored = _score_dataframe(df, model, feature_columns)
+    paths = run_postprocessing(scored)
+
+    print(f"Scoring TLV generado: {paths['postprocessed']}")
+    print(f"Replica S3: {paths['s3']}")
+    print(f"Replica Athena: {paths['athena']}")
+    print(f"Replica Onpremise: {paths['onpremise']}")
+
+
+def _score_monitor_and_postprocess(processed: dict[str, str], model: object) -> dict[str, object]:
+    import pandas as pd
+
+    from monitoring import groups_matrix_is_broken, run_monitoring
+    from postprocessing import run_postprocessing
     from training import load_feature_columns
 
     feature_columns = load_feature_columns(Path(processed["metadata"]))
     df_train = pd.read_csv(processed["train"])
     df_val = pd.read_csv(processed["val"])
 
-    train_scores = model.predict_proba(df_train[feature_columns])[:, 1]
-    val_scores = model.predict_proba(df_val[feature_columns])[:, 1]
-    return run_monitoring(
+    train_scores = _predict_scores(df_train, model, feature_columns)
+    val_scores = _predict_scores(df_val, model, feature_columns)
+    report = run_monitoring(
         train_scores=train_scores,
         val_scores=val_scores,
         y_val=df_val[config.columns.target].astype(int).to_numpy(),
     )
+    # el OOT tambien se postprocesa para validar la matriz de grupos de ejecucion.
+    scored_val = df_val.copy()
+    scored_val["score"] = val_scores
+    post_paths = run_postprocessing(scored_val)
+    postprocessed = pd.read_csv(post_paths["postprocessed"], usecols=["grupo_ejec_tlv"])
+    group_matrix_broken = bool(groups_matrix_is_broken(postprocessed))
+    report["group_matrix_broken"] = group_matrix_broken
+    report["requires_retraining_final"] = bool(report["requires_retraining"] or group_matrix_broken)
+    (config.paths.monitoring_dir / "monitoring_report.json").write_text(
+        json.dumps(report, indent=2),
+        encoding="utf-8",
+    )
+    return report
+
+
+def _score_dataframe(df, model: object, feature_columns: list[str]):
+    scored = df.copy()
+    scored["score"] = _predict_scores(scored, model, feature_columns)
+    return scored
+
+
+def _predict_scores(df, model: object, feature_columns: list[str]):
+    missing = [column for column in feature_columns if column not in df.columns]
+    if missing:
+        raise ValueError(f"Faltan columnas de features para inferencia: {missing[:10]}")
+    return model.predict_proba(df[feature_columns])[:, 1]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -96,8 +149,15 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--n-trials", type=int, default=30)
     train_parser.add_argument("--max-retrain-attempts", type=int, default=1)
 
-    subparsers.add_parser("inference", help="Pendiente etapa 3.")
-    run_all_parser = subparsers.add_parser("run-all", help="Ejecuta el flujo disponible hasta fase 2.")
+    inference_parser = subparsers.add_parser("inference", help="Ejecuta scoring TLV y genera replicas.")
+    inference_parser.add_argument(
+        "--input-path",
+        type=Path,
+        default=config.paths.processed_dir / "df_val.csv",
+        help="CSV procesado con las columnas de entrenamiento y variables TLV.",
+    )
+
+    run_all_parser = subparsers.add_parser("run-all", help="Ejecuta entrenamiento, monitoreo, TLV y replicas.")
     run_all_parser.add_argument("--data-dir", type=Path, default=config.paths.raw_dir)
     run_all_parser.add_argument("--validation-codmes", type=float, default=None)
     run_all_parser.add_argument("--n-trials", type=int, default=30)
@@ -114,6 +174,9 @@ def main() -> None:
         return
     if args.command in {"train", "run-all"}:
         train_pipeline(args.data_dir, args.validation_codmes, args.n_trials, args.max_retrain_attempts)
+        return
+    if args.command == "inference":
+        inference_pipeline(args.input_path)
         return
 
     raise NotImplementedError(f"Comando '{args.command}' se implementara en las siguientes etapas.")

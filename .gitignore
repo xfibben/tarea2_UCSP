@@ -12,10 +12,6 @@ __pycache__/
 .env
 .env.*
 
-# Documentos temporales de trabajo
-PLAN_REIMPLEMENTACION.md
-DATA_NOTES.md
-
 # Datos y artefactos generados
 data/raw/*
 data/processed/*

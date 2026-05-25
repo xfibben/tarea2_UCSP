@@ -25,7 +25,7 @@ class Paths:
 
 @dataclass(frozen=True)
 class Columns:
-    month: str = "p_codmes"
+    month: str = "p_fecinformacion"
     target: str = "target"
     customer_id: str = "key_value"
     campaign_group: str = "grp_campecs06m"
@@ -47,9 +47,10 @@ class Columns:
 @dataclass(frozen=True)
 class SplitConfig:
     nan_threshold_pct: float = 80.0
-    validation_codmes: float = 201912.0
+    validation_codmes: float = 20221201.0
     test_size: float = 0.30
     random_state: int = 123
+    max_categorical_levels: int = 20
 
 
 @dataclass(frozen=True)

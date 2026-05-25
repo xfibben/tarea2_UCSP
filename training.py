@@ -99,6 +99,16 @@ def train_and_log(
     return run_id, model
 
 
+def load_model(model_path: Path | None = None) -> object:
+    model_path = model_path or config.paths.model_dir / "xgb_model.json"
+    if not model_path.exists():
+        raise FileNotFoundError(f"No existe modelo entrenado: {model_path}")
+
+    model = xgb.XGBClassifier()
+    model.load_model(model_path)
+    return model
+
+
 def load_feature_columns(metadata_path: Path, df_train: pd.DataFrame | None = None) -> list[str]:
     if metadata_path.exists():
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))

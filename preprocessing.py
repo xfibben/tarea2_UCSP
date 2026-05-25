@@ -92,7 +92,7 @@ def run_preprocessing(
     df[target_col] = df[target_col].astype(int)
 
     if validation_month not in set(df[month_col].dropna().unique()):
-        # Preferimos no fallar antes de conocer el dataset real; se usa el ultimo mes como OOT.
+        # se usa el ultimo mes como OOT si el mes indicado no existe en la data.
         validation_month = float(sorted(df[month_col].dropna().unique())[-1])
 
     df_val_raw = df[df[month_col] == validation_month].copy()
@@ -163,6 +163,11 @@ def _encode_frames(df_train, df_test, df_val) -> dict[str, object]:
         column
         for column in combined.columns
         if column not in protected and combined[column].dtype == "object"
+    ]
+    object_columns = [
+        column
+        for column in object_columns
+        if combined[column].nunique(dropna=True) <= config.split.max_categorical_levels
     ]
     combined = pd.get_dummies(combined, columns=object_columns, dummy_na=True)
 
