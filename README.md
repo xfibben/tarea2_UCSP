@@ -2,11 +2,14 @@
 
 Este repositorio contiene un pipeline de machine learning para el caso CU Venta.
 
-Repositorio:
-
-```text
+Repositorio : ```text
 https://github.com/xfibben/tarea2_UCSP
 ```
+
+Dashboard en local: ```text
+http://localhost:8501
+```
+El flujo hace:
 
 El flujo hace:
 
@@ -29,7 +32,7 @@ Descargar los archivos CSV desde:
 https://drive.google.com/drive/folders/1BbaYLS_Cy5pbvfE6JH3P7KlLdlRf_Cds?usp=drive_link
 ```
 
-Luego colocar los CSV en:
+Luego colocar los CSV en (importantee):
 
 ```text
 data/raw/
@@ -47,12 +50,6 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-En macOS, si XGBoost muestra error con `libomp.dylib`, ejecutar:
-
-```bash
-brew install libomp
-```
-
 ## Como ejecutar
 
 Primero se puede revisar que los CSV esten bien ubicados:
@@ -65,12 +62,6 @@ Para correr todo el pipeline:
 
 ```bash
 python main.py run-all --validation-codmes 20221201 --n-trials 30
-```
-
-Para una prueba rapida se puede usar:
-
-```bash
-python main.py run-all --validation-codmes 20221201 --n-trials 1 --max-retrain-attempts 0
 ```
 
 Para ejecutar solo inferencia despues de entrenar:
