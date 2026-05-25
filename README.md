@@ -2,6 +2,12 @@
 
 Este repositorio contiene un pipeline de machine learning para el caso CU Venta.
 
+Repositorio:
+
+```text
+https://github.com/xfibben/tarea2_UCSP
+```
+
 El flujo hace:
 
 - lectura de datos
@@ -73,13 +79,19 @@ Para ejecutar solo inferencia despues de entrenar:
 python main.py inference
 ```
 
+Para abrir el dashboard:
+
+```bash
+streamlit run dashboard.py
+```
+
 ## Archivos generados
 
 El pipeline genera archivos en estas carpetas:
 
 ```text
 data/processed/
-data/postprocessed/
+data/postprocessed/output_tlv.csv
 data/replica/
 artifacts/
 mlruns/
@@ -97,6 +109,7 @@ Estos archivos no se suben a GitHub porque se pueden volver a generar.
 ├── training.py
 ├── monitoring.py
 ├── postprocessing.py
+├── dashboard.py
 ├── requirements.txt
 ├── data/
 └── artifacts/

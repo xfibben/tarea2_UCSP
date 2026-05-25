@@ -80,6 +80,8 @@ def run_preprocessing(
     data_dir: Path | None = None,
     validation_codmes: float | None = None,
 ) -> dict[str, str]:
+    """ejecuta limpieza, split temporal y guardado de train/test/OOT."""
+
     pd = _pd()
     df = read_raw_dataset(data_dir)
     _validate_required_columns(df)

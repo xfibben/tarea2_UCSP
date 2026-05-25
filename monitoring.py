@@ -51,12 +51,18 @@ def recall_by_decile(y_true: np.ndarray, scores: np.ndarray, n_deciles: int = 10
     return pd.DataFrame(rows).sort_values("decile")
 
 
+def compute_recall_by_decile(y_true: np.ndarray, scores: np.ndarray, n_deciles: int = 10) -> pd.DataFrame:
+    return recall_by_decile(y_true, scores, n_deciles)
+
+
 def run_monitoring(
     train_scores: np.ndarray,
     val_scores: np.ndarray,
     y_val: np.ndarray,
     output_path: Path | None = None,
 ) -> dict[str, object]:
+    """calcula PSI, AUC y recall por decil sobre el mes OOT."""
+
     output_path = output_path or config.paths.monitoring_dir / "monitoring_report.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

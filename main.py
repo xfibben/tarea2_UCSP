@@ -67,7 +67,7 @@ def train_pipeline(
 def inference_pipeline(input_path: Path) -> None:
     import pandas as pd
 
-    from postprocessing import run_postprocessing
+    from postprocessing import run_postprocessing, save_replica
     from training import load_feature_columns, load_model
 
     ensure_project_dirs()
@@ -80,10 +80,12 @@ def inference_pipeline(input_path: Path) -> None:
     model = load_model()
     feature_columns = load_feature_columns(config.paths.processed_dir / "preprocessing_metadata.json")
     df = pd.read_csv(input_path)
-    scored = _score_dataframe(df, model, feature_columns)
-    paths = run_postprocessing(scored)
+    scores = _predict_scores(df, model, feature_columns)
+    post_path = config.paths.postprocessed_dir / "output_tlv.csv"
+    result = run_postprocessing(scores, df, post_path)
+    paths = save_replica(result, table="EC_OMNICANAL", partition=str(int(result[config.columns.month].max())))
 
-    print(f"Scoring TLV generado: {paths['postprocessed']}")
+    print(f"Scoring TLV generado: {post_path}")
     print(f"Replica S3: {paths['s3']}")
     print(f"Replica Athena: {paths['athena']}")
     print(f"Replica Onpremise: {paths['onpremise']}")
@@ -93,7 +95,7 @@ def _score_monitor_and_postprocess(processed: dict[str, str], model: object) -> 
     import pandas as pd
 
     from monitoring import groups_matrix_is_broken, run_monitoring
-    from postprocessing import run_postprocessing
+    from postprocessing import run_postprocessing, save_replica
     from training import load_feature_columns
 
     feature_columns = load_feature_columns(Path(processed["metadata"]))
@@ -108,10 +110,9 @@ def _score_monitor_and_postprocess(processed: dict[str, str], model: object) -> 
         y_val=df_val[config.columns.target].astype(int).to_numpy(),
     )
     # el OOT tambien se postprocesa para validar la matriz de grupos de ejecucion.
-    scored_val = df_val.copy()
-    scored_val["score"] = val_scores
-    post_paths = run_postprocessing(scored_val)
-    postprocessed = pd.read_csv(post_paths["postprocessed"], usecols=["grupo_ejec_tlv"])
+    post_path = config.paths.postprocessed_dir / "output_tlv.csv"
+    postprocessed = run_postprocessing(val_scores, df_val, post_path)
+    save_replica(postprocessed, table="EC_OMNICANAL", partition=str(int(postprocessed[config.columns.month].max())))
     group_matrix_broken = bool(groups_matrix_is_broken(postprocessed))
     report["group_matrix_broken"] = group_matrix_broken
     report["requires_retraining_final"] = bool(report["requires_retraining"] or group_matrix_broken)
@@ -120,12 +121,6 @@ def _score_monitor_and_postprocess(processed: dict[str, str], model: object) -> 
         encoding="utf-8",
     )
     return report
-
-
-def _score_dataframe(df, model: object, feature_columns: list[str]):
-    scored = df.copy()
-    scored["score"] = _predict_scores(scored, model, feature_columns)
-    return scored
 
 
 def _predict_scores(df, model: object, feature_columns: list[str]):

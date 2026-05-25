@@ -19,6 +19,8 @@ def train_and_log(
     metadata_path: Path | None = None,
     n_trials: int = 30,
 ) -> tuple[str, object]:
+    """entrena XGBoost con Optuna y registra el modelo en MLflow."""
+
     train_path = train_path or config.paths.processed_dir / "df_train.csv"
     test_path = test_path or config.paths.processed_dir / "df_test.csv"
     metadata_path = metadata_path or config.paths.processed_dir / "preprocessing_metadata.json"
